@@ -2,7 +2,7 @@ import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { PagestateService } from '../pagestate.service';
 import { BattleService } from '../battle.service';
 import { RosterService } from '../roster.service';
-import { Gladiator } from '../gladiator';
+//import { Gladiator } from '../gladiator';
 
 
 @Component({
@@ -56,12 +56,15 @@ export class BattleComponent implements OnInit {
     window.requestAnimationFrame(() => this.draw());
   }
 
+  // This returns the canvas to black, so the old animation frames are removed.
+  // This is no longer required, as I am not restricing animation to the main
+  // canvas. It can be re-implemented if that is the approach I want to pursue.
   draw() {
     //console.log("showing battle window")
     this.context.fillStyle = "ffffff";
     this.context.fillRect(0, 0, this.width, this.height);
 
-    ///// Uncomment if you need to animate the main canvas
+    ///// Uncomment if you need to animate the main canvas.
     //if (this.pss.getState() == 3)
     //  window.requestAnimationFrame(() => this.draw());
   }
@@ -71,6 +74,7 @@ export class BattleComponent implements OnInit {
     window.requestAnimationFrame(() => this.drawHealthBar(canvas, healthContext, index));
   }
 
+  // Draws a green health bar on top of a red bar, over a gladiator's head
   drawHealthBar(canvas, healthContext, index) {
     healthContext.fillStyle = "red";
     healthContext.fillRect(0, 0, canvas.width, canvas.height);
@@ -78,13 +82,18 @@ export class BattleComponent implements OnInit {
     healthContext.fillStyle = "green";
     healthContext.fillRect(0, 0, canvas.width * (this.playerHealth[index] / this.playerTotalHealth[index]), canvas.height);
 
+    // -5 on the y axis puts the health bar above the head.
     canvas.style.top = (this.playery[index] - 5) + "px";
     canvas.style.left = this.playerx[index] + "px";
 
+    // These if statements continue re-drawing battle elements as long as
+    // the battle state is true.
     if (this.pss.getState() == 3)
       window.requestAnimationFrame(() => this.drawHealthBar(canvas, healthContext, index));
   }
 
+  // This is actually a portable canvas for displaying the player.
+  // It is a small box, showing one frame of the sprite animation sheet at a time.
   makeCanvasPlayer(canvas: HTMLCanvasElement, playerContext, index) {
     playerContext = canvas.getContext('2d');
     window.requestAnimationFrame(() => this.drawPlayer(canvas, playerContext, index));
@@ -92,9 +101,13 @@ export class BattleComponent implements OnInit {
 
   drawPlayer(canvas: HTMLCanvasElement, playerContext, index) {
     //console.log(this.playerimagex + ", " + this.playerimagey);
-    if (this.bs.getPlayersChosen()){
-    playerContext.clearRect(0, 0, canvas.width, canvas.height);
 
+    // This clears old animations from the player canvas.
+    if (this.bs.getPlayersChosen()){
+      playerContext.clearRect(0, 0, canvas.width, canvas.height);
+
+    // If the gladiator is a player (case 0), they move according to player controls.
+    // If the gladiator is a computer (case 1), they follow the aggro combat AI.
     switch (index) {
       case 0:
         playerContext.drawImage(this.playerImage, this.playerimagex[index], this.playerimagey[index]);
@@ -148,7 +161,7 @@ export class BattleComponent implements OnInit {
   }
 
   startBattle() {
-
+    // These refer to the sprite animation sheets.
     this.enemyImage.src = 'assets/shadowlord.png';
     this.playerImage.src = 'assets/glad2.png';
 
@@ -178,6 +191,8 @@ export class BattleComponent implements OnInit {
     this.playerStrength[1] = 5;
     this.playerDexterity[1] = 5;
 
+    // Retrieves local battle variables from the gladiator object returned 
+    // from the battle service
     if (this.bs.getPlayerGladiator != null) {
       this.playerTotalHealth[0] = this.bs.getPlayerGladiator().maxHealth;
       this.playerHealth[0] = this.bs.getPlayerGladiator().currentHealth;
@@ -207,8 +222,10 @@ export class BattleComponent implements OnInit {
 
     //});
 
+    // Auto-focuses on the canvasID element, so you don't need to click on the window to play
     (<HTMLCanvasElement>document.getElementById('canvasId')).focus();
 
+    // Creates the different portable canvases for the different battle elements
     const canvas = <HTMLCanvasElement>document.getElementById('canvasId');
     this.makeCanvas(canvas);
     const playerCanvas = <HTMLCanvasElement>document.getElementById('player');
@@ -221,6 +238,7 @@ export class BattleComponent implements OnInit {
     this.makeCanvasHealthBar(enemyHealthCanvas, this.enemyHealthContext, 1);
   }
 
+  // This is the computer attack AI.
   aggro(canvas, playerContext, playerIndex, comIndex) {
     let xdif = this.playerx[playerIndex] - this.playerx[comIndex];;
     let ydif = this.playery[comIndex] - this.playery[playerIndex];
@@ -228,6 +246,8 @@ export class BattleComponent implements OnInit {
     let movex = 0;
     let movey = 0;
 
+    // Redirects to the correct row of the character animation sheet for the 
+    // direction they are supposed to be facing to aggro towards the player
     if (Math.abs(ydif) > Math.abs(xdif)) {
       if (ydif > 0)
         anim = -520;
@@ -243,6 +263,9 @@ export class BattleComponent implements OnInit {
 
     //console.log(this.playerDamaging[comIndex]);
 
+    // If the enemy is out of attack range of the computer player, they run at 
+    // the vector of best apprach for aggro.
+    // If the enemy is within attack range of the computer player, they swing.
     if ((Math.abs(ydif) + Math.abs(xdif)) > 40) {
       movex = (this.playerspeed[comIndex] * xdif) / (Math.abs(ydif) + Math.abs(xdif));
       movey = (this.playerspeed[comIndex] * ydif) / (Math.abs(ydif) + Math.abs(xdif));
@@ -354,6 +377,7 @@ export class BattleComponent implements OnInit {
     this.waitDamage(canvas, playerContext, attackerIndex, defenderIndex, originalY, i);
   }
 
+  // Prepares for a new battle
   resetWinLose(){
     this.battleWin = false;
     this.battleLose = false;
@@ -366,6 +390,8 @@ export class BattleComponent implements OnInit {
     this.waitDamage(canvas, playerContext, attackerIndex, defenderIndex, originalY - 260, 0);
   }
 
+  // This calls the movePlayer function in the direction of the keys actively being pressed.
+  // -520, -585, etc correspond to different rows of the character animation sheet.
   movePlayerZero() {
     if (this.keys.has("ArrowUp")) {
       this.movePlayer(0, -520, 0, this.playerspeed[0]);
@@ -381,6 +407,7 @@ export class BattleComponent implements OnInit {
     }
   }
 
+  // Moves the 
   movePlayer(index, playerimagey, playerx, playery) {
     this.playerimagey[index] = playerimagey;
 
@@ -393,6 +420,7 @@ export class BattleComponent implements OnInit {
     this.playery[index] -= playery;
   }
 
+  // Adds the keys currently being pressed to a vector of active keys
   onKeydown(event) {
     //console.log(event);
 
@@ -420,6 +448,7 @@ export class BattleComponent implements OnInit {
     //console.log(this.keys);
   }
 
+  // Removes keys released from the vector of active keys
   onKeyup(event) {
     if (event.key === "ArrowUp") {
       this.keys.delete("ArrowUp");
